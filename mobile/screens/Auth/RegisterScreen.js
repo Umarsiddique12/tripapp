@@ -47,10 +47,19 @@ const RegisterScreen = ({ navigation }) => {
       
       if (!result.success) {
         let alertMessage = result.message || 'Registration failed';
+        let alertTitle = 'Registration Failed';
         
-        // Add more specific error details if available
-        if (result.details) {
-          alertMessage += `\n\nDetails: ${JSON.stringify(result.details, null, 2)}`;
+        // Handle specific error cases
+        if (result.message && (result.message.includes('already exists') || result.message.includes('duplicate'))) {
+          alertTitle = 'Email Already Registered';
+          alertMessage = 'This email address is already registered. Please try logging in instead or use a different email address.';
+        } else if (result.details) {
+          // Handle validation errors
+          if (typeof result.details === 'string') {
+            alertMessage = result.details;
+          } else {
+            alertMessage += `\n\nDetails: ${JSON.stringify(result.details, null, 2)}`;
+          }
         }
         
         if (result.fullError) {
@@ -58,11 +67,27 @@ const RegisterScreen = ({ navigation }) => {
           
           // Check for network errors
           if (result.fullError.message === 'Network error or server unreachable') {
+            alertTitle = 'Connection Error';
             alertMessage = 'Cannot connect to server. Please check:\n• Your internet connection\n• Backend server is running on localhost:5000\n• No firewall blocking the connection';
           }
         }
         
-        Alert.alert('Registration Failed', alertMessage);
+        // Show different alert for duplicate email with login option
+        if (result.message && (result.message.includes('already exists') || result.message.includes('duplicate'))) {
+          Alert.alert(
+            alertTitle, 
+            alertMessage,
+            [
+              { text: 'Try Different Email', style: 'cancel' },
+              { 
+                text: 'Go to Login', 
+                onPress: () => navigation.navigate('Login')
+              }
+            ]
+          );
+        } else {
+          Alert.alert(alertTitle, alertMessage);
+        }
       }
     } catch (error) {
       console.error('RegisterScreen: Unexpected error:', error);

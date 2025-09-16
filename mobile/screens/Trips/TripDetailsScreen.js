@@ -223,7 +223,13 @@ const TripDetailsScreen = ({ navigation, route }) => {
             <Text style={styles.actionText}>Media</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('TripChat', { 
+              tripId: trip._id, 
+              tripName: trip.name 
+            })}
+          >
             <Ionicons name="chatbubbles" size={24} color="#9C27B0" />
             <Text style={styles.actionText}>Chat</Text>
           </TouchableOpacity>

@@ -24,6 +24,7 @@ import ExpenseSummaryScreen from '../screens/Expenses/ExpenseSummaryScreen';
 import MediaScreen from '../screens/Media/MediaScreen';
 import UploadMediaScreen from '../screens/Media/UploadMediaScreen';
 
+import ChatListScreen from '../screens/Chat/ChatListScreen';
 import ChatScreen from '../screens/Chat/ChatScreen';
 
 import ProfileScreen from '../screens/Profile/ProfileScreen';
@@ -159,8 +160,13 @@ const ChatStack = () => (
   >
     <Stack.Screen 
       name="ChatList" 
+      component={ChatListScreen} 
+      options={{ title: 'Chats' }}
+    />
+    <Stack.Screen 
+      name="TripChat" 
       component={ChatScreen} 
-      options={{ title: 'Chat' }}
+      options={({ route }) => ({ title: route.params?.tripName || 'Chat' })}
     />
   </Stack.Navigator>
 );

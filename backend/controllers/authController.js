@@ -18,8 +18,25 @@ const register = async (req, res) => {
       });
     }
 
-    // Check if user already exists
-    const userExists = await User.findOne({ email });
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid email address'
+      });
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+
+    // Check if user already exists (case-insensitive)
+    const userExists = await User.findOne({ email: email.toLowerCase() });
     if (userExists) {
       console.log('User already exists:', email);
       return res.status(400).json({
@@ -28,13 +45,32 @@ const register = async (req, res) => {
       });
     }
 
-    // Create user
+    // Create user with additional error handling
     console.log('Creating new user:', { name, email });
-    const user = await User.create({
-      name,
-      email,
-      password
-    });
+    let user;
+    try {
+      user = await User.create({
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        password
+      });
+    } catch (createError) {
+      console.error('User creation error:', createError);
+      
+      // Handle duplicate key/index errors during creation
+      if (createError.code === 11000 || createError.code === 11001 || 
+          createError.message?.includes('duplicate') || 
+          createError.message?.includes('E11000')) {
+        return res.status(400).json({
+          success: false,
+          message: 'User already exists with this email',
+          details: 'Email address is already registered'
+        });
+      }
+      
+      // Re-throw other errors to be handled by outer catch
+      throw createError;
+    }
 
     if (user) {
       const token = generateToken(user._id);
@@ -63,6 +99,56 @@ const register = async (req, res) => {
     }
   } catch (error) {
     console.error('Registration error:', error);
+    console.error('Error code:', error.code);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    
+    // Handle duplicate key error (MongoDB E11000) - covers both duplicate key and duplicate index
+    if (error.code === 11000 || error.code === 11001) {
+      // Extract the field that caused the duplicate error
+      let duplicateField = 'email';
+      if (error.keyPattern) {
+        duplicateField = Object.keys(error.keyPattern)[0];
+      } else if (error.message && error.message.includes('email')) {
+        duplicateField = 'email';
+      }
+      
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this email',
+        details: 'Email address is already registered',
+        field: duplicateField
+      });
+    }
+    
+    // Handle duplicate index errors specifically
+    if (error.message && error.message.includes('duplicate key') || error.message.includes('duplicate index')) {
+      return res.status(400).json({
+        success: false,
+        message: 'User already exists with this email',
+        details: 'Email address is already registered'
+      });
+    }
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        details: errors.join(', ')
+      });
+    }
+    
+    // Handle cast errors
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid data format',
+        details: error.message
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Registration failed',
