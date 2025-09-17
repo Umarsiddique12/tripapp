@@ -227,6 +227,17 @@ const TripDetailsScreen = ({ navigation, route }) => {
             <Ionicons name="chatbubbles" size={24} color="#9C27B0" />
             <Text style={styles.actionText}>Chat</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('LocationTracking', { 
+              tripId: trip._id, 
+              tripName: trip.name 
+            })}
+          >
+            <Ionicons name="location" size={24} color="#007AFF" />
+            <Text style={styles.actionText}>Location</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -401,14 +412,16 @@ const styles = StyleSheet.create({
   },
   actionsGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   actionButton: {
     alignItems: 'center',
     padding: 16,
     backgroundColor: '#f8f9fa',
     borderRadius: 12,
-    minWidth: 80,
+    width: '48%',
+    marginBottom: 12,
   },
   actionText: {
     marginTop: 8,

@@ -1,23 +1,24 @@
 import * as SecureStore from 'expo-secure-store';
 
-// API Configuration
-// For Android emulator, use 10.0.2.2 instead of localhost
-// For physical device, use your computer's IP address
+// NOTE: Using SecureStore instead of AsyncStorage for auth token persistence.
+
 const getBaseURL = () => {
+  // For Expo tunnel setup with multiple devices
   if (__DEV__) {
-    // Try these URLs in order:
-    // 1. localhost (works for iOS simulator)
-    // 2. 10.0.2.2 (works for Android emulator)
-    // 3. Your computer's IP address (works for physical devices)
-    
-    // You can change this to your computer's IP address if needed
-    // To find your IP: ipconfig (Windows) or ifconfig (Mac/Linux)
-    return 'http://10.0.2.2:5000/api'; // Android emulator
-    // return 'http://localhost:5000/api'; // iOS simulator
-    // return 'http://192.168.1.XXX:5000/api'; // Physical device (replace XXX with your IP)
+    // Use your computer's IP address - works for both emulator and physical devices via tunnel
+    return 'http://192.168.1.8:5000/api';
   }
+  
+  // Production fallback
   return 'https://your-production-api.com/api';
 };
+
+// Alternative URLs to try if the primary one fails
+export const BACKUP_URLS = [
+  'http://192.168.1.8:5000/api',    // Physical device IP
+  'http://10.0.2.2:5000/api',       // Android emulator
+  'http://localhost:5000/api'        // Localhost fallback
+];
 
 export const API_BASE_URL = getBaseURL();
 

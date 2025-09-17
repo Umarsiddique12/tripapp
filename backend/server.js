@@ -17,6 +17,10 @@ const tripRoutes = require('./routes/trips');
 const expenseRoutes = require('./routes/expenses');
 const mediaRoutes = require('./routes/media');
 const chatRoutes = require('./routes/chat');
+const locationRoutes = require('./routes/location');
+
+// Import location tracking service
+const LocationTrackingService = require('./services/locationTrackingService');
 
 // Connect to database
 connectDB();
@@ -29,8 +33,9 @@ const io = socketIo(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
       ? process.env.CLIENT_URL 
-      : ['http://localhost:3000', 'exp://localhost:19000'],
-    methods: ['GET', 'POST']
+      : true, // Allow all origins in development for Expo tunnel support
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
@@ -49,7 +54,7 @@ app.use(limiter);
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? process.env.CLIENT_URL 
-    : ['http://localhost:3000', 'exp://localhost:19000'],
+    : true, // Allow all origins in development for Expo tunnel support
   credentials: true
 }));
 
@@ -59,6 +64,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -66,6 +72,11 @@ app.use('/api/trips', tripRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/location', locationRoutes);
+
+// Initialize location tracking service
+const locationService = new LocationTrackingService(io);
+app.set('locationService', locationService);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -106,6 +117,9 @@ io.use(async (socket, next) => {
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log(`User ${socket.user.name} connected with socket ID: ${socket.id}`);
+
+  // Initialize location tracking for this socket
+  locationService.initializeLocationTracking(socket);
 
   // Join trip room
   socket.on('joinTrip', (tripId) => {

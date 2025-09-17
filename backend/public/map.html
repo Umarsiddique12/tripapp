@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip Location Map</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" 
+          integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==" 
+          crossorigin="anonymous" 
+          referrerpolicy="no-referrer" />
+    
+    <!-- Leaflet JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" 
+            integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g==" 
+            crossorigin="anonymous" 
+            referrerpolicy="no-referrer"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .status-bar {
+            background: linear-gradient(135deg, #007AFF, #0056CC);
+            color: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,122,255,0.3);
+            z-index: 1000;
+            position: relative;
+        }
+        
+        .status-info h2 {
+            margin: 0 0 8px 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .status-details {
+            display: flex;
+            gap: 20px;
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        .controls {
+            position: fixed;
+            top: 120px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .control-btn {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px 15px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+        
+        .control-btn:hover {
+            background: #f0f0f0;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        #map {
+            width: 100%;
+            height: calc(100vh - 100px);
+            z-index: 1;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            z-index: 2000;
+            min-width: 200px;
+        }
+        
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007AFF;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error-message {
+            color: #FF3B30;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <div>Loading location data...</div>
+    </div>
+    
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-info">
+            <h2 id="trip-name">Trip Location Map</h2>
+            <div class="status-details">
+                <span id="active-count">0 active</span>
+                <span id="last-update">Not updated</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Control Buttons -->
+    <div class="controls">
+        <button class="control-btn" onclick="fitMapToMarkers()">📍 Center</button>
+        <button class="control-btn" onclick="toggleMapType()">🗺️ Satellite</button>
+        <button class="control-btn" onclick="refreshLocationData()">🔄 Refresh</button>
+    </div>
+    
+    <!-- Map Container -->
+    <div id="map"></div>
+
+    <script>
+        // Variables
+        let map;
+        let markers = [];
+        let tripId, authToken;
+        let refreshInterval;
+        
+        // Get URL parameters
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            tripId = params.get('tripId');
+            authToken = params.get('token');
+            const tripName = params.get('tripName');
+            
+            if (tripName) {
+                document.getElementById('trip-name').textContent = decodeURIComponent(tripName);
+            }
+            
+            if (!tripId || !authToken) {
+                showError('Missing trip information. Please access this map from the app.');
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Initialize Leaflet map
+        function initializeMap() {
+            map = L.map('map').setView([28.5677, 77.2853], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+        
+        // Fetch location data
+        async function fetchLocationData() {
+            try {
+                const response = await fetch(`/api/location/trip/${tripId}/active`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to fetch location data');
+                }
+                
+                const data = await response.json();
+                return data.data;
+            } catch (error) {
+                console.error('Fetch error:', error);
+                throw error;
+            }
+        }
+        
+        // Add markers to map
+        function addMarkersToMap(locationData) {
+            // Clear existing markers
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            
+            const members = locationData.activeMembers || [];
+            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4'];
+            
+            members.forEach((member, index) => {
+                if (!member.location) return;
+                
+                const color = colors[index % colors.length];
+                const marker = L.circleMarker([member.location.latitude, member.location.longitude], {
+                    color: 'white',
+                    fillColor: color,
+                    fillOpacity: 0.8,
+                    radius: 8,
+                    weight: 2
+                }).addTo(map);
+                
+                marker.bindPopup(`
+                    <strong>${member.name}</strong><br>
+                    📍 ${member.location.latitude.toFixed(6)}, ${member.location.longitude.toFixed(6)}<br>
+                    🕒 ${new Date(member.lastUpdate).toLocaleTimeString()}<br>
+                    📏 ±${Math.round(member.location.accuracy)}m
+                `);
+                
+                markers.push(marker);
+            });
+            
+            // Fit map to markers
+            if (markers.length > 0) {
+                const group = new L.featureGroup(markers);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+        
+        // Update map display
+        function updateMap(locationData) {
+            const memberCount = locationData.activeMembers ? locationData.activeMembers.length : 0;
+            document.getElementById('active-count').textContent = `${memberCount} active`;
+            document.getElementById('last-update').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
+            
+            if (memberCount === 0) {
+                showError('No active members sharing location');
+                return;
+            }
+            
+            hideLoading();
+            addMarkersToMap(locationData);
+        }
+        
+        // Refresh data
+        async function refreshLocationData() {
+            try {
+                const locationData = await fetchLocationData();
+                updateMap(locationData);
+            } catch (error) {
+                showError('Failed to refresh location data');
+            }
+        }
+        
+        // Center map on markers
+        function fitMapToMarkers() {
+            if (markers.length > 0) {
+                const group = new L.featureGroup(markers);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+        
+        // Toggle map type (placeholder)
+        function toggleMapType() {
+            alert('Map type toggle - feature coming soon!');
+        }
+        
+        // Show error
+        function showError(message) {
+            document.getElementById('loading').innerHTML = 
+                `<div class="error-message">${message}</div>`;
+            document.getElementById('loading').style.display = 'block';
+        }
+        
+        // Hide loading
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+        
+        // Initialize everything
+        async function init() {
+            if (!getUrlParams()) return;
+            
+            try {
+                initializeMap();
+                await refreshLocationData();
+                
+                // Auto-refresh every 5 seconds
+                refreshInterval = setInterval(refreshLocationData, 5000);
+                
+            } catch (error) {
+                showError('Failed to load location data');
+            }
+        }
+        
+        // Start when page loads
+        window.addEventListener('load', init);
+        
+        // Cleanup
+        window.addEventListener('beforeunload', () => {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        });
+    </script>
+</body>
+</html>

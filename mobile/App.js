@@ -5,6 +5,7 @@ import Toast from 'react-native-toast-message';
 
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
+import { LocationProvider } from './context/LocationContext';
 import AppNavigator from './navigation/AppNavigator';
 
 export default function App() {
@@ -12,9 +13,11 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <SocketProvider>
-          <AppNavigator />
-          <StatusBar style="auto" />
-          <Toast />
+          <LocationProvider>
+            <AppNavigator />
+            <StatusBar style="auto" />
+            <Toast />
+          </LocationProvider>
         </SocketProvider>
       </AuthProvider>
     </SafeAreaProvider>

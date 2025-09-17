@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Location Debug Test</title>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>🧪 Location System Debug Test</h1>
+    
+    <div>
+        <h3>Network Test:</h3>
+        <button onclick="testHTTP()">Test HTTP API</button>
+        <button onclick="testSocket()">Test Socket.IO</button>
+        <button onclick="testLocation()">Test Location Send</button>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const socket = io('http://192.168.1.8:5001');
+        
+        function log(message) {
+            document.getElementById('results').innerHTML += 
+                `<p>${new Date().toLocaleTimeString()}: ${message}</p>`;
+        }
+        
+        // Test HTTP
+        async function testHTTP() {
+            try {
+                const response = await fetch('http://192.168.1.8:5001/test');
+                const data = await response.json();
+                log('✅ HTTP Test: ' + JSON.stringify(data));
+            } catch (error) {
+                log('❌ HTTP Test Failed: ' + error.message);
+            }
+        }
+        
+        // Test Socket.IO
+        function testSocket() {
+            socket.on('connect', () => {
+                log('✅ Socket.IO Connected: ' + socket.id);
+            });
+            
+            socket.on('connect_error', (error) => {
+                log('❌ Socket.IO Failed: ' + error.message);
+            });
+            
+            socket.on('testLocationBroadcast', (data) => {
+                log('📍 Location broadcast received: ' + JSON.stringify(data));
+            });
+        }
+        
+        // Test Location
+        function testLocation() {
+            const testData = {
+                tripId: 'test123',
+                latitude: 28.5677,
+                longitude: 77.2853,
+                accuracy: 10,
+                timestamp: Date.now()
+            };
+            
+            socket.emit('testLocation', testData);
+            log('📍 Test location sent: ' + JSON.stringify(testData));
+        }
+        
+        // Auto-run tests
+        window.onload = () => {
+            log('🧪 Starting debug tests...');
+            testHTTP();
+            testSocket();
+        };
+    </script>
+</body>
+</html>

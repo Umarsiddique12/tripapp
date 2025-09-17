@@ -30,6 +30,8 @@ import ProfileScreen from '../screens/Profile/ProfileScreen';
 import EditProfileScreen from '../screens/Profile/EditProfileScreen';
 import SettingsScreen from '../screens/Profile/SettingsScreen';
 
+import LocationTrackingScreen from '../screens/Trips/LocationTrackingScreen';
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -78,6 +80,11 @@ const TripsStack = () => (
       name="InviteMember" 
       component={InviteMemberScreen} 
       options={{ title: 'Invite Member' }}
+    />
+    <Stack.Screen 
+      name="LocationTracking" 
+      component={LocationTrackingScreen} 
+      options={{ headerShown: false }}
     />
   </Stack.Navigator>
 );
